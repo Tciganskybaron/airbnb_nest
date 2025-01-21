@@ -1,25 +1,25 @@
 export enum ScheduleStatus {
 	/** Room is reserved but not yet confirmed */
-	Reserved = 'Reserved',
+	Reserved = 'reserved',
 
 	/** Booking is confirmed but not yet paid */
-	Confirmed = 'Confirmed',
+	Confirmed = 'confirmed',
 
 	/** Booking is fully paid */
-	Paid = 'Paid',
+	Paid = 'paid',
 
 	/** Guest has checked into the room */
-	CheckedIn = 'CheckedIn',
+	CheckedIn = 'checked_in',
 
 	/** Guest has checked out of the room */
-	CheckedOut = 'CheckedOut',
+	CheckedOut = 'checked_out',
 
 	/** Booking has been canceled */
-	Cancelled = 'Cancelled',
+	Cancelled = 'cancelled',
 
 	/** Booking has been canceled with a refund issued */
-	Refunded = 'Refunded',
+	Refunded = 'refunded',
 
 	/** Guest did not show up for the booking */
-	NoShow = 'NoShow',
+	NoShow = 'no_show',
 }

@@ -14,10 +14,10 @@ export class Shedule {
 		required: true,
 		enum: ScheduleStatus,
 	})
-	status: number;
+	status: string;
 
-	@Prop({ type: MSchema.Types.ObjectId, ref: Room.name })
-	room: Room;
+	@Prop({ type: MSchema.Types.ObjectId, ref: Room.name, required: true })
+	roomId: Room;
 }
 
 export const SheduleSchema = SchemaFactory.createForClass(Shedule);

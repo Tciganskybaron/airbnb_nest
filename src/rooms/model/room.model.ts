@@ -13,7 +13,7 @@ export class Room {
 		required: true,
 		enum: RomsCategory,
 	})
-	room_category: number;
+	room_category: string;
 }
 
 export const RoomSchema = SchemaFactory.createForClass(Room);
