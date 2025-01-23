@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { DeleteResult, Model, Types } from 'mongoose';
 import { Room, RoomDocument } from './model/room.model';
 import { RoomDto } from './dto/room.dto';
 
@@ -17,7 +17,7 @@ export class RoomsService {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
-		return this.roomModel.findOne({ id }).exec();
+		return this.roomModel.findById(id).exec(); // Изменено на findById
 	}
 
 	async getAll(): Promise<Room[]> {
@@ -30,6 +30,10 @@ export class RoomsService {
 		}
 		const id = new Types.ObjectId(roomId);
 		return this.roomModel.findByIdAndDelete(id).exec();
+	}
+
+	async deleteAll(): Promise<DeleteResult> {
+		return this.roomModel.deleteMany({}).exec();
 	}
 
 	async update(roomId: string, dto: RoomDto): Promise<Room | null> {

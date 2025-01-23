@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { RomsCategory } from '../type/room-category.enum';
@@ -17,3 +18,13 @@ export class Room {
 }
 
 export const RoomSchema = SchemaFactory.createForClass(Room);
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface Room extends Document {
+	_id: string;
+	number_room: string;
+	room_category: string;
+	createdAt: Date;
+	updatedAt: Date;
+	__v: number;
+}
