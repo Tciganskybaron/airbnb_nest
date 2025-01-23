@@ -14,7 +14,7 @@ export class ScheduleService {
 	}
 
 	async getOne(sheduleId: string): Promise<Shedule | null> {
-		if (!Types.ObjectId.isValid(sheduleId)) {
+		if (!this.isValidObjectId(sheduleId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(sheduleId);
@@ -22,7 +22,7 @@ export class ScheduleService {
 	}
 
 	async deleteOne(sheduleId: string): Promise<Shedule | null> {
-		if (!Types.ObjectId.isValid(sheduleId)) {
+		if (!this.isValidObjectId(sheduleId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(sheduleId);
@@ -32,26 +32,39 @@ export class ScheduleService {
 	}
 
 	async update(sheduleId: string, dto: SheduleDto): Promise<Shedule | null> {
-		if (!Types.ObjectId.isValid(sheduleId)) {
+		if (!this.isValidObjectId(sheduleId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(sheduleId);
 		return this.sheduleModel.findByIdAndUpdate(id, dto, { new: true }).exec();
 	}
 
-	async isRoomOccupied(roomId: string, date: Date): Promise<Shedule | null> {
+	async isRoomOccupied(roomId: string, date: Date): Promise<Shedule | 'ROOM_NOT_FOUND' | null> {
 		const startOfDay = new Date(date);
 		startOfDay.setUTCHours(0, 0, 0, 0);
 
 		const endOfDay = new Date(date);
 		endOfDay.setUTCHours(23, 59, 59, 999);
 
-		return this.sheduleModel
+		const shedule = await this.sheduleModel
 			.findOne({
 				roomId,
 				time: { $gte: startOfDay, $lt: endOfDay },
 			})
 			.populate('roomId')
 			.exec();
+		if (!shedule) {
+			return null;
+		}
+
+		if (!shedule.roomId) {
+			return 'ROOM_NOT_FOUND';
+		}
+
+		return shedule;
+	}
+
+	isValidObjectId(id: string): boolean {
+		return Types.ObjectId.isValid(id);
 	}
 }

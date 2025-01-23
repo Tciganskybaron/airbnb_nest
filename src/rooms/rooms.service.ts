@@ -13,7 +13,7 @@ export class RoomsService {
 	}
 
 	async getOne(roomId: string): Promise<Room | null> {
-		if (!Types.ObjectId.isValid(roomId)) {
+		if (!this.isValidObjectId(roomId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
@@ -25,7 +25,7 @@ export class RoomsService {
 	}
 
 	async deleteOne(roomId: string): Promise<Room | null> {
-		if (!Types.ObjectId.isValid(roomId)) {
+		if (!this.isValidObjectId(roomId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
@@ -37,10 +37,14 @@ export class RoomsService {
 	}
 
 	async update(roomId: string, dto: RoomDto): Promise<Room | null> {
-		if (!Types.ObjectId.isValid(roomId)) {
+		if (!this.isValidObjectId(roomId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
 		return this.roomModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+	}
+
+	isValidObjectId(id: string): boolean {
+		return Types.ObjectId.isValid(id);
 	}
 }

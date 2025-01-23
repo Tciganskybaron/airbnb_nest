@@ -13,6 +13,7 @@ import {
 import { ScheduleService } from './schedule.service';
 import { SheduleDto } from './dto/shedule.dto';
 import { ROOM_BOOKED, SHEDULE_NOT_FOUND } from './constant/message';
+import { ROOM_NOT_FOUND } from 'src/rooms/constant/message';
 @Controller('schedule')
 export class ScheduleController {
 	constructor(private readonly sheduleService: ScheduleService) {}
@@ -21,6 +22,10 @@ export class ScheduleController {
 	@HttpCode(201)
 	async create(@Body() dto: SheduleDto) {
 		const isOccupied = await this.sheduleService.isRoomOccupied(dto.roomId, dto.time);
+		if (isOccupied === 'ROOM_NOT_FOUND') {
+			throw new HttpException(ROOM_NOT_FOUND, HttpStatus.NOT_FOUND);
+		}
+
 		if (isOccupied) {
 			throw new HttpException(ROOM_BOOKED, HttpStatus.CONFLICT);
 		}

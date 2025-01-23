@@ -192,6 +192,22 @@ describe('AppController (e2e)', () => {
 			createdSheduleIds.push(response.body._id);
 		});
 
+		it('POST /schedule/create - room not found', async () => {
+			const createSheduleDto: SheduleDto = {
+				time: new Date(),
+				status: 'reserved',
+				roomId: nonExistentId,
+			};
+
+			await request(app.getHttpServer())
+				.post('/schedule/create')
+				.send(createSheduleDto)
+				.expect(404, {
+					statusCode: 404,
+					message: ROOM_NOT_FOUND,
+				});
+		});
+
 		it('GET /schedule/:id - success', async () => {
 			const sheduleId = createdSheduleIds[0];
 			const response = await request(app.getHttpServer()).get(`/schedule/${sheduleId}`).expect(200);
