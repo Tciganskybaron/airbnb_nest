@@ -5,7 +5,9 @@ import { AppService } from './app.service';
 import { ScheduleModule } from './schedule/schedule.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { MongooseModule } from '@nestjs/mongoose';
-import { getMongoConfig } from 'configs/mongo.config';
+import { getMongoConfig } from 'src/configs/mongo.config';
+import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
 	imports: [
@@ -17,6 +19,8 @@ import { getMongoConfig } from 'configs/mongo.config';
 		ConfigModule.forRoot(),
 		ScheduleModule,
 		RoomsModule,
+		UserModule,
+		AuthModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],
