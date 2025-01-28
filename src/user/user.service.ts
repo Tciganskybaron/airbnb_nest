@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { DeleteResult, Model } from 'mongoose';
 import { User, UserDocument } from './model/user.model';
 import { AuthCreateDto } from 'src/auth/dto/authCreate.dto';
 import { genSalt, hash } from 'bcryptjs';
@@ -31,5 +31,10 @@ export class UserService {
 
 		const user = new this.userModel(userDto);
 		return user.save();
+	}
+
+	async deleteUser(dto: Pick<AuthCreateDto, 'email'>): Promise<DeleteResult> {
+		const user = await this.getByEmail(dto.email);
+		return await this.userModel.deleteOne({ email: user.email });
 	}
 }

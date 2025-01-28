@@ -50,6 +50,7 @@ export class RoomsController {
 
 	@Delete(':id')
 	@HttpCode(204)
+	@Roles(UserRole.Admin)
 	async delete(@Param('id', ValidateObjectIdPipe) id: string): Promise<void> {
 		const deletedRoom = await this.roomService.deleteOne(id);
 		if (!deletedRoom) {
@@ -60,6 +61,7 @@ export class RoomsController {
 	@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 	@Patch(':id')
 	@HttpCode(200)
+	@Roles(UserRole.Admin)
 	async path(@Param('id', ValidateObjectIdPipe) id: string, @Body() dto: RoomDto): Promise<Room> {
 		const updated = await this.roomService.update(id, dto);
 		if (!updated) {

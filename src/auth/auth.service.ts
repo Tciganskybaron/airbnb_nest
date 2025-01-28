@@ -5,6 +5,7 @@ import { UserService } from 'src/user/user.service';
 import { INVALID_PASSWORD_ERROR } from './contants/auth.constants';
 import { compare } from 'bcryptjs';
 import { AuthCreateDto } from './dto/authCreate.dto';
+import { DeleteResult } from 'mongoose';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +16,10 @@ export class AuthService {
 
 	async createUser(dto: AuthCreateDto): Promise<User> {
 		return await this.userService.createUser(dto);
+	}
+
+	async deleteUser(dto: Pick<AuthCreateDto, 'email'>): Promise<DeleteResult> {
+		return await this.userService.deleteUser(dto);
 	}
 
 	async validateUser(email: string, password: string): Promise<Pick<User, 'email' | 'role'>> {

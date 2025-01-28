@@ -18,7 +18,6 @@ export const getMongoConfig = async (
 		retryDelay: 5000,
 		connectionFactory: (connection) => {
 			mongoose.set('strictQuery', true);
-			console.log(`Connection MongooDB established`);
 			return connection;
 		},
 		verboseRetryLog: true,

@@ -25,28 +25,40 @@ import {
 	TIME_DATE_STRING,
 	TIME_NOT_EMPTY,
 } from 'src/schedule/constant/message';
+import { Reflector } from '@nestjs/core';
+import { JwtAuthGuard } from 'src/guards/jwt.guard';
+import { AuthService } from 'src/auth/auth.service';
+import { UserRole } from 'src/user/type/userRole.enum';
+import { AuthCreateDto } from 'src/auth/dto/authCreate.dto';
 
 describe('AppController (e2e)', () => {
 	let app: INestApplication;
+	let authService: AuthService;
 	let roomService: RoomsService;
 	let scheduleService: ScheduleService;
+	let adminUserToken: string;
+	let userUserToken: string;
 	const createdRoomIds: string[] = [];
 	const createdSheduleIds: string[] = [];
+	const usersToDelete: string[] = [];
 	const nonExistentId: string = '000000000000000000000000';
 	const invalid_id: string = 'invalidObjectId';
 
-	beforeEach(async () => {
-		const moduleFixture: TestingModule = await Test.createTestingModule({
-			imports: [AppModule],
-		}).compile();
+	// Функция для создания пользователя и получения токена
+	const createAndLoginUser = async (userData: AuthCreateDto) => {
+		const user = await authService.createUser(userData);
+		usersToDelete.push(user.email); // Добавляем в список для удаления
 
-		app = moduleFixture.createNestApplication();
-		await app.init();
+		const response = await request(app.getHttpServer()).post('/auth/login').send({
+			email: user.email,
+			password: userData.password,
+		});
 
-		roomService = moduleFixture.get<RoomsService>(RoomsService);
-		scheduleService = moduleFixture.get<ScheduleService>(ScheduleService);
+		return response.body.access_token;
+	};
 
-		// Создание 5 комнат
+	// Функция для создания комнат
+	const createRooms = async () => {
 		const categories = [
 			RomsCategory.Insider,
 			RomsCategory.SeaView,
@@ -55,22 +67,69 @@ describe('AppController (e2e)', () => {
 			RomsCategory.MegaRockStar,
 		];
 
-		for (let i = 0; i < categories.length; i++) {
+		for (const category of categories) {
 			const room = await roomService.create({
-				number_room: String(i + 1),
-				room_category: categories[i],
+				number_room: String(createdRoomIds.length + 1),
+				room_category: category,
 			});
 			createdRoomIds.push(room._id);
 		}
+	};
+
+	beforeAll(async () => {
+		// Инициализируем приложение
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [AppModule],
+		}).compile();
+
+		app = moduleFixture.createNestApplication();
+
+		// Подключаем глобальный Guard
+		const reflector = app.get(Reflector);
+		app.useGlobalGuards(new JwtAuthGuard(reflector));
+
+		await app.init();
+
+		// Получаем сервисы
+		authService = moduleFixture.get<AuthService>(AuthService);
+		roomService = moduleFixture.get<RoomsService>(RoomsService);
+		scheduleService = moduleFixture.get<ScheduleService>(ScheduleService);
+
+		// Создаем пользователей и получаем токены
+		adminUserToken = await createAndLoginUser({
+			email: 'admin@example.com',
+			password: 'AdminPassword123!',
+			role: UserRole.Admin,
+			name: 'Admin User',
+			telephone: '1234567890',
+		});
+
+		userUserToken = await createAndLoginUser({
+			email: 'user@example.com',
+			password: 'UserPassword123!',
+			role: UserRole.User,
+			name: 'Regular User',
+			telephone: '0987654321',
+		});
+
+		// Создаем тестовые комнаты
+		await createRooms();
 	});
 
 	afterAll(async () => {
+		// Удаление расписаний
 		for (const id of createdSheduleIds) {
 			await scheduleService.deleteOne(id);
 		}
+		// Удаление комнат
 		for (const id of createdRoomIds) {
 			await roomService.deleteOne(id);
 		}
+		// Удаление пользователей
+		for (const email of usersToDelete) {
+			await authService.deleteUser({ email });
+		}
+
 		disconnect();
 		await app.close();
 	});
@@ -81,9 +140,9 @@ describe('AppController (e2e)', () => {
 				number_room: '6',
 				room_category: RomsCategory.Insider,
 			};
-
 			const response = await request(app.getHttpServer())
 				.post('/rooms/create')
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(createRoomDto)
 				.expect(201);
 
@@ -102,6 +161,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/rooms/create')
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(createRoomDto)
 				.expect(400);
 
@@ -117,6 +177,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/rooms/create')
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(createRoomDto)
 				.expect(400);
 
@@ -133,6 +194,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/rooms/create')
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(createRoomDto)
 				.expect(400);
 
@@ -148,6 +210,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/rooms/create')
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(createRoomDto)
 				.expect(400);
 
@@ -155,15 +218,22 @@ describe('AppController (e2e)', () => {
 			expect(response.body).toHaveProperty('message');
 			expect(response.body.message[0]).toContain(NUMBER_ROOM_NOT_EMPTY);
 		});
+
 		it('GET /rooms/all - success', async () => {
-			const response = await request(app.getHttpServer()).get('/rooms/all').expect(200);
+			const response = await request(app.getHttpServer())
+				.get('/rooms/all')
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(200);
 
 			expect(response.body.length).toBeGreaterThanOrEqual(5);
 		});
 
 		it('GET /rooms/:id - success', async () => {
 			const roomId = createdRoomIds[0];
-			const response = await request(app.getHttpServer()).get(`/rooms/${roomId}`).expect(200);
+			const response = await request(app.getHttpServer())
+				.get(`/rooms/${roomId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(200);
 
 			expect(response.body).toHaveProperty('_id', String(roomId));
 		});
@@ -174,9 +244,9 @@ describe('AppController (e2e)', () => {
 				number_room: '10',
 				room_category: RomsCategory.RockStar,
 			};
-
 			const response = await request(app.getHttpServer())
 				.patch(`/rooms/${roomId}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(updateRoomDto)
 				.expect(200);
 
@@ -194,6 +264,7 @@ describe('AppController (e2e)', () => {
 			const response = await request(app.getHttpServer())
 				.patch(`/rooms/${roomId}`)
 				.send(updateRoomDto)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.expect(400);
 
 			expect(response.body).toHaveProperty('statusCode', 400);
@@ -210,6 +281,7 @@ describe('AppController (e2e)', () => {
 			const response = await request(app.getHttpServer())
 				.patch(`/rooms/${roomId}`)
 				.send(updateRoomDto)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.expect(400);
 
 			expect(response.body).toHaveProperty('statusCode', 400);
@@ -226,6 +298,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/rooms/${roomId}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(updateRoomDto)
 				.expect(400);
 
@@ -242,6 +315,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/rooms/${roomId}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(updateRoomDto)
 				.expect(400);
 
@@ -252,14 +326,20 @@ describe('AppController (e2e)', () => {
 
 		it('DELETE /rooms/:id - success', async () => {
 			const roomId = createdRoomIds.pop();
-			await request(app.getHttpServer()).delete(`/rooms/${roomId}`).expect(204);
+			await request(app.getHttpServer())
+				.delete(`/rooms/${roomId}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
+				.expect(204);
 		});
 
 		it('GET /rooms/:id - not found', async () => {
-			await request(app.getHttpServer()).get(`/rooms/${invalid_id}`).expect(404, {
-				statusCode: 404,
-				message: ROOM_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.get(`/rooms/${invalid_id}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: ROOM_NOT_FOUND,
+				});
 		});
 
 		it('PATCH /rooms/:id - not found', async () => {
@@ -271,6 +351,7 @@ describe('AppController (e2e)', () => {
 			await request(app.getHttpServer())
 				.patch(`/rooms/${invalid_id}`)
 				.send(updateRoomDto)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.expect(404, {
 					statusCode: 404,
 					message: ROOM_NOT_FOUND,
@@ -278,17 +359,23 @@ describe('AppController (e2e)', () => {
 		});
 
 		it('DELETE /rooms/:id - not found', async () => {
-			await request(app.getHttpServer()).delete(`/rooms/${invalid_id}`).expect(404, {
-				statusCode: 404,
-				message: ROOM_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.delete(`/rooms/${invalid_id}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: ROOM_NOT_FOUND,
+				});
 		});
 
 		it('GET /rooms/:id - room not found', async () => {
-			await request(app.getHttpServer()).get(`/rooms/${nonExistentId}`).expect(404, {
-				statusCode: 404,
-				message: ROOM_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.get(`/rooms/${nonExistentId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: ROOM_NOT_FOUND,
+				});
 		});
 
 		it('PATCH /rooms/:id - room not found', async () => {
@@ -299,6 +386,7 @@ describe('AppController (e2e)', () => {
 
 			await request(app.getHttpServer())
 				.patch(`/rooms/${nonExistentId}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
 				.send(updateRoomDto)
 				.expect(404, {
 					statusCode: 404,
@@ -307,10 +395,13 @@ describe('AppController (e2e)', () => {
 		});
 
 		it('DELETE /rooms/:id - room not found', async () => {
-			await request(app.getHttpServer()).delete(`/rooms/${nonExistentId}`).expect(404, {
-				statusCode: 404,
-				message: ROOM_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.delete(`/rooms/${nonExistentId}`)
+				.set('Authorization', `Bearer ${adminUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: ROOM_NOT_FOUND,
+				});
 		});
 	});
 
@@ -324,6 +415,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(201);
 			expect(response.body).toHaveProperty('_id');
@@ -342,6 +434,7 @@ describe('AppController (e2e)', () => {
 
 			await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(404, {
 					statusCode: 404,
@@ -358,6 +451,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(400);
 
@@ -374,6 +468,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(400);
 
@@ -390,6 +485,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(400);
 
@@ -407,6 +503,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(400);
 
@@ -423,6 +520,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(400);
 
@@ -440,6 +538,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.post('/schedule/create')
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(createSheduleDto)
 				.expect(400);
 
@@ -450,7 +549,10 @@ describe('AppController (e2e)', () => {
 
 		it('GET /schedule/:id - success', async () => {
 			const sheduleId = createdSheduleIds[0];
-			const response = await request(app.getHttpServer()).get(`/schedule/${sheduleId}`).expect(200);
+			const response = await request(app.getHttpServer())
+				.get(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(200);
 
 			expect(response.body).toHaveProperty('_id', String(sheduleId));
 		});
@@ -466,16 +568,20 @@ describe('AppController (e2e)', () => {
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
 				.send(updateSheduleDto)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.expect(200);
 
 			expect(response.body.status).toBe(updateSheduleDto.status);
 		});
 
 		it('GET /schedule/:id - not found invalid_id', async () => {
-			await request(app.getHttpServer()).get(`/schedule/${invalid_id}`).expect(404, {
-				statusCode: 404,
-				message: SHEDULE_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.get(`/schedule/${invalid_id}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: SHEDULE_NOT_FOUND,
+				});
 		});
 
 		it('PATCH /schedule/:id - not found invalid_id', async () => {
@@ -487,6 +593,7 @@ describe('AppController (e2e)', () => {
 
 			await request(app.getHttpServer())
 				.patch(`/schedule/${invalid_id}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(404, {
 					statusCode: 404,
@@ -504,6 +611,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(400);
 
@@ -521,6 +629,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(400);
 
@@ -538,6 +647,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(400);
 
@@ -556,6 +666,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(400);
 
@@ -573,6 +684,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(400);
 
@@ -591,6 +703,7 @@ describe('AppController (e2e)', () => {
 
 			const response = await request(app.getHttpServer())
 				.patch(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(400);
 
@@ -601,21 +714,30 @@ describe('AppController (e2e)', () => {
 
 		it('DELETE /schedule/:id - success', async () => {
 			const sheduleId = createdSheduleIds.pop();
-			await request(app.getHttpServer()).delete(`/schedule/${sheduleId}`).expect(204);
+			await request(app.getHttpServer())
+				.delete(`/schedule/${sheduleId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(204);
 		});
 
 		it('DELETE /schedule/:id - not found invalid_id', async () => {
-			await request(app.getHttpServer()).delete(`/schedule/${invalid_id}`).expect(404, {
-				statusCode: 404,
-				message: SHEDULE_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.delete(`/schedule/${invalid_id}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: SHEDULE_NOT_FOUND,
+				});
 		});
 
 		it('GET /schedule/:id - shedule not found nonExistentId', async () => {
-			await request(app.getHttpServer()).get(`/schedule/${nonExistentId}`).expect(404, {
-				statusCode: 404,
-				message: SHEDULE_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.get(`/schedule/${nonExistentId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: SHEDULE_NOT_FOUND,
+				});
 		});
 
 		it('PATCH /schedule/:id - shedule not found nonExistentId', async () => {
@@ -627,6 +749,7 @@ describe('AppController (e2e)', () => {
 
 			await request(app.getHttpServer())
 				.patch(`/schedule/${nonExistentId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
 				.send(updateSheduleDto)
 				.expect(404, {
 					statusCode: 404,
@@ -635,10 +758,13 @@ describe('AppController (e2e)', () => {
 		});
 
 		it('DELETE /schedule/:id - shedule not found nonExistentId', async () => {
-			await request(app.getHttpServer()).delete(`/schedule/${nonExistentId}`).expect(404, {
-				statusCode: 404,
-				message: SHEDULE_NOT_FOUND,
-			});
+			await request(app.getHttpServer())
+				.delete(`/schedule/${nonExistentId}`)
+				.set('Authorization', `Bearer ${userUserToken}`)
+				.expect(404, {
+					statusCode: 404,
+					message: SHEDULE_NOT_FOUND,
+				});
 		});
 	});
 });
