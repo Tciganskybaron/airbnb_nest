@@ -17,6 +17,8 @@ import { RoomsService } from './rooms.service';
 import { ROOM_NOT_FOUND } from './constant/message';
 import { Room } from './model/room.model';
 import { ValidateObjectIdPipe } from './pipe/validateObjectIdPipe';
+import { Roles } from 'src/decorators/user-role.decorator';
+import { UserRole } from 'src/user/type/userRole.enum';
 
 @Controller('rooms')
 export class RoomsController {
@@ -25,6 +27,7 @@ export class RoomsController {
 	@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 	@Post('create')
 	@HttpCode(201)
+	@Roles(UserRole.Admin)
 	async create(@Body() dto: RoomDto): Promise<Room> {
 		return this.roomService.create(dto);
 	}
