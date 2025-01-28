@@ -30,6 +30,8 @@ import { JwtAuthGuard } from 'src/guards/jwt.guard';
 import { AuthService } from 'src/auth/auth.service';
 import { UserRole } from 'src/user/type/userRole.enum';
 import { AuthCreateDto } from 'src/auth/dto/authCreate.dto';
+import { ALREADY_REGISTERED_ERROR, USER_NOT_FOUND_ERROR } from 'src/user/contants/user.constants';
+import { INVALID_PASSWORD_ERROR } from 'src/auth/contants/auth.constants';
 
 describe('AppController (e2e)', () => {
 	let app: INestApplication;
@@ -132,6 +134,128 @@ describe('AppController (e2e)', () => {
 
 		disconnect();
 		await app.close();
+	});
+
+	describe('AuthController (e2e)', () => {
+		const testUserEmail = 'testuser@example.com';
+		const testUserPassword = 'TestPassword123!';
+
+		it('POST /auth/register - success', async () => {
+			const registerDto = {
+				email: testUserEmail,
+				password: testUserPassword,
+				role: UserRole.User,
+				name: 'Test User',
+				telephone: '123456789000',
+			};
+
+			const response = await request(app.getHttpServer())
+				.post('/auth/register')
+				.send(registerDto)
+				.expect(201);
+
+			expect(response.body).toHaveProperty('email', registerDto.email);
+			usersToDelete.push(registerDto.email);
+		});
+
+		it('POST /auth/register - fail (email already taken)', async () => {
+			const registerDto = {
+				email: testUserEmail, // Повторяем тот же email
+				password: testUserPassword,
+				role: UserRole.User,
+				name: 'Test User 2',
+				telephone: '987654321000',
+			};
+
+			const response = await request(app.getHttpServer())
+				.post('/auth/register')
+				.send(registerDto)
+				.expect(400);
+
+			expect(response.body).toHaveProperty('message', ALREADY_REGISTERED_ERROR);
+		});
+
+		it('POST /auth/login - success', async () => {
+			const loginDto = {
+				email: 'testuser@example.com',
+				password: 'TestPassword123!',
+			};
+
+			const response = await request(app.getHttpServer())
+				.post('/auth/login')
+				.send(loginDto)
+				.expect(200);
+
+			expect(response.body).toHaveProperty('access_token');
+		});
+
+		it('POST /auth/login - fail (wrong password)', async () => {
+			const loginDto = {
+				email: testUserEmail,
+				password: 'WrongPassword123!',
+			};
+
+			const response = await request(app.getHttpServer())
+				.post('/auth/login')
+				.send(loginDto)
+				.expect(401);
+
+			expect(response.body).toHaveProperty('message', INVALID_PASSWORD_ERROR);
+		});
+
+		it('POST /auth/login - fail (wrong email)', async () => {
+			const loginDto = {
+				email: 'wrongemail@example.com',
+				password: testUserPassword,
+			};
+
+			const response = await request(app.getHttpServer())
+				.post('/auth/login')
+				.send(loginDto)
+				.expect(401);
+
+			expect(response.body).toHaveProperty('message', USER_NOT_FOUND_ERROR);
+		});
+
+		it('DELETE /auth - success', async () => {
+			const deletedMail = usersToDelete.pop() || 'testuser@example.com';
+			const deleteDto = {
+				email: deletedMail,
+				password: 'TestPassword123!',
+			};
+
+			await request(app.getHttpServer()).delete('/auth').send(deleteDto).expect(200);
+		});
+
+		it('DELETE /auth - fail (user not found)', async () => {
+			const deleteDto = {
+				email: 'nonexistentuser@example.com',
+				password: testUserPassword,
+			};
+
+			const response = await request(app.getHttpServer())
+				.delete('/auth')
+				.send(deleteDto)
+				.expect(401);
+
+			expect(response.body).toHaveProperty('message', USER_NOT_FOUND_ERROR);
+		});
+
+		it('DELETE /auth - fail (password required)', async () => {
+			const deleteDto = {
+				email: testUserEmail,
+			};
+
+			const response = await request(app.getHttpServer())
+				.delete('/auth')
+				.send(deleteDto)
+				.expect(400);
+
+			expect(response.body).toHaveProperty('message', [
+				'password should not be null or undefined',
+				'password must be a string',
+			]);
+		});
 	});
 
 	describe('RoomsController', () => {
