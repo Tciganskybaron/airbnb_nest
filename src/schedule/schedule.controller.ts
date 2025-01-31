@@ -17,6 +17,8 @@ import { SheduleDto } from './dto/shedule.dto';
 import { ROOM_BOOKED, SHEDULE_NOT_FOUND } from './constant/message';
 import { ROOM_NOT_FOUND } from 'src/rooms/constant/message';
 import { ValidateObjectIdPipe } from './pipe/validateObjectIdPipe';
+import { Roles } from 'src/decorators/user-role.decorator';
+import { UserRole } from 'src/user/type/userRole.enum';
 @Controller('schedule')
 export class ScheduleController {
 	constructor(private readonly sheduleService: ScheduleService) {}
@@ -46,6 +48,13 @@ export class ScheduleController {
 			throw new HttpException(SHEDULE_NOT_FOUND, HttpStatus.NOT_FOUND);
 		}
 		return shedule;
+	}
+
+	@Get('statistics/:month')
+	@HttpCode(200)
+	@Roles(UserRole.Admin)
+	async getStatistic(@Param('month') month: string) {
+		return await this.sheduleService.getStatistic(month);
 	}
 
 	@Delete(':id')

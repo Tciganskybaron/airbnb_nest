@@ -21,6 +21,22 @@ export class ScheduleService {
 		return this.sheduleModel.findById(id);
 	}
 
+	async getStatistic(month: string) {
+		const monthNumber = parseInt(month, 10);
+		return this.sheduleModel
+			.aggregate()
+			.match({ $expr: { $eq: [{ $month: '$time' }, monthNumber] } })
+			.group({
+				_id: '$roomId', // Группируем по roomId
+				shedule: { $sum: 1 }, // Считаем количество записей
+			})
+			.project({
+				_id: 0, // Убираем _id из вывода
+				roomId: '$_id',
+				shedule: 1,
+			});
+	}
+
 	async deleteOne(sheduleId: string): Promise<Shedule | null> {
 		if (!this.isValidObjectId(sheduleId)) {
 			return null;
