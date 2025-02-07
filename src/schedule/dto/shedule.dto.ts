@@ -1,4 +1,4 @@
-import { IsDateString, IsDefined, IsString } from 'class-validator';
+import { IsDateString, IsDefined, IsEnum, IsString } from 'class-validator';
 import {
 	TIME_NOT_EMPTY,
 	TIME_DATE_STRING,
@@ -7,6 +7,7 @@ import {
 	ROOM_ID_NOT_EMPTY,
 	ROOM_ID_STRING,
 } from '../constant/message';
+import { ScheduleStatus } from '../type/shedule-status.enum';
 
 export class SheduleDto {
 	@IsDefined({ message: TIME_NOT_EMPTY })
@@ -15,7 +16,8 @@ export class SheduleDto {
 
 	@IsDefined({ message: STATUS_NOT_EMPTY })
 	@IsString({ message: STATUS_STRING })
-	status: string;
+	@IsEnum(ScheduleStatus)
+	status: ScheduleStatus;
 
 	@IsDefined({ message: ROOM_ID_NOT_EMPTY })
 	@IsString({ message: ROOM_ID_STRING })
