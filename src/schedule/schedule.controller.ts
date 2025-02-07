@@ -19,9 +19,13 @@ import { ROOM_NOT_FOUND } from 'src/rooms/constant/message';
 import { ValidateObjectIdPipe } from './pipe/validateObjectIdPipe';
 import { Roles } from 'src/decorators/user-role.decorator';
 import { UserRole } from 'src/user/type/userRole.enum';
+import { TelegramService } from 'src/telegram/telegram.service';
 @Controller('schedule')
 export class ScheduleController {
-	constructor(private readonly sheduleService: ScheduleService) {}
+	constructor(
+		private readonly sheduleService: ScheduleService,
+		private readonly telegramService: TelegramService,
+	) {}
 
 	@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 	@Post('create')
@@ -35,8 +39,34 @@ export class ScheduleController {
 		if (isOccupied) {
 			throw new HttpException(ROOM_BOOKED, HttpStatus.CONFLICT);
 		}
+		const shedule = await this.sheduleService.create(dto);
 
-		return this.sheduleService.create(dto);
+		if (!shedule._id) {
+			throw new HttpException('Ошибка при создании бронирования', HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+		const populatedShedule = await this.sheduleService.getOne(
+			shedule._id.toString(),
+			'roomId userId',
+		);
+
+		// Проверяем наличие данных
+		if (!populatedShedule?.userId || !populatedShedule?.roomId) {
+			throw new HttpException(
+				'Ошибка при загрузке данных бронирования',
+				HttpStatus.INTERNAL_SERVER_ERROR,
+			);
+		}
+
+		const message =
+			`📅 *Новое бронирование* \n` +
+			`👤 *Имя*: ${populatedShedule.userId.name}\n` +
+			`📞 *Телефон*: ${populatedShedule.userId.telephone}\n` +
+			`📆 *Дата*: ${populatedShedule.time}\n` +
+			`🏨 *Номер комнаты*: ${populatedShedule.roomId.number_room}\n` +
+			`📌 *Статус*: ${populatedShedule.status}`;
+
+		await this.telegramService.sendMessage(message);
+		return shedule;
 	}
 
 	@Get(':id')
@@ -65,6 +95,16 @@ export class ScheduleController {
 		if (!deletedRoom) {
 			throw new HttpException(SHEDULE_NOT_FOUND, HttpStatus.NOT_FOUND);
 		}
+
+		const message =
+			`❌ Отмена бронирования:\n` +
+			`👤 Имя: ${deletedRoom.userId?.name ?? 'Неизвестно'}\n` +
+			`📞 Телефон: ${deletedRoom.userId?.telephone ?? 'Неизвестно'}\n` +
+			`📅 Дата: ${deletedRoom.time}\n` +
+			`🏠 Номер комнаты: ${deletedRoom.roomId?.number_room ?? 'Неизвестно'}\n` +
+			`🔴 Статус: ${deletedRoom.status}`;
+
+		await this.telegramService.sendMessage(message);
 	}
 
 	@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))

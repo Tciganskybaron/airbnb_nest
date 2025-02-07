@@ -13,12 +13,18 @@ export class ScheduleService {
 		return this.sheduleModel.create(dto);
 	}
 
-	async getOne(sheduleId: string): Promise<Shedule | null> {
+	async getOne(sheduleId: string, populate?: string): Promise<Shedule | null> {
 		if (!this.isValidObjectId(sheduleId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(sheduleId);
-		return this.sheduleModel.findById(id);
+		const query = this.sheduleModel.findById(id);
+
+		if (populate) {
+			query.populate(populate);
+		}
+
+		return query.exec();
 	}
 
 	async getStatistic(month: string) {
@@ -44,6 +50,7 @@ export class ScheduleService {
 		const id = new Types.ObjectId(sheduleId);
 		return this.sheduleModel
 			.findByIdAndUpdate(id, { status: ScheduleStatus.Cancelled }, { new: true })
+			.populate('roomId userId')
 			.exec();
 	}
 
@@ -67,7 +74,7 @@ export class ScheduleService {
 				roomId,
 				time: { $gte: startOfDay, $lt: endOfDay },
 			})
-			.populate('roomId')
+			.populate('roomId userId')
 			.exec();
 		if (!shedule) {
 			return null;

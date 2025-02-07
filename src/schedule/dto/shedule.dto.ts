@@ -22,4 +22,8 @@ export class SheduleDto {
 	@IsDefined({ message: ROOM_ID_NOT_EMPTY })
 	@IsString({ message: ROOM_ID_STRING })
 	roomId: string;
+
+	@IsDefined()
+	@IsString()
+	userId: string;
 }
