@@ -9,18 +9,27 @@ import {
 	Param,
 	Patch,
 	Post,
+	UsePipes,
+	ValidationPipe,
 } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { SheduleDto } from './dto/shedule.dto';
 import { ROOM_BOOKED, SHEDULE_NOT_FOUND } from './constant/message';
+import { ROOM_NOT_FOUND } from 'src/rooms/constant/message';
+import { ValidateObjectIdPipe } from './pipe/validateObjectIdPipe';
 @Controller('schedule')
 export class ScheduleController {
 	constructor(private readonly sheduleService: ScheduleService) {}
 
+	@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 	@Post('create')
 	@HttpCode(201)
 	async create(@Body() dto: SheduleDto) {
 		const isOccupied = await this.sheduleService.isRoomOccupied(dto.roomId, dto.time);
+		if (isOccupied === 'ROOM_NOT_FOUND') {
+			throw new HttpException(ROOM_NOT_FOUND, HttpStatus.NOT_FOUND);
+		}
+
 		if (isOccupied) {
 			throw new HttpException(ROOM_BOOKED, HttpStatus.CONFLICT);
 		}
@@ -30,7 +39,7 @@ export class ScheduleController {
 
 	@Get(':id')
 	@HttpCode(200)
-	async get(@Param('id') id: string) {
+	async get(@Param('id', ValidateObjectIdPipe) id: string) {
 		const shedule = await this.sheduleService.getOne(id);
 
 		if (!shedule) {
@@ -41,7 +50,7 @@ export class ScheduleController {
 
 	@Delete(':id')
 	@HttpCode(204)
-	async delete(@Param('id') id: string) {
+	async delete(@Param('id', ValidateObjectIdPipe) id: string) {
 		const deletedRoom = await this.sheduleService.deleteOne(id);
 
 		if (!deletedRoom) {
@@ -49,9 +58,10 @@ export class ScheduleController {
 		}
 	}
 
+	@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 	@Patch(':id')
 	@HttpCode(200)
-	async path(@Param('id') id: string, @Body() dto: SheduleDto) {
+	async path(@Param('id', ValidateObjectIdPipe) id: string, @Body() dto: SheduleDto) {
 		const updated = await this.sheduleService.update(id, dto);
 
 		if (!updated) {

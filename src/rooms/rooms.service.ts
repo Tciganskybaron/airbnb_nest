@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { DeleteResult, Model, Types } from 'mongoose';
 import { Room, RoomDocument } from './model/room.model';
 import { RoomDto } from './dto/room.dto';
 
@@ -13,11 +13,11 @@ export class RoomsService {
 	}
 
 	async getOne(roomId: string): Promise<Room | null> {
-		if (!Types.ObjectId.isValid(roomId)) {
+		if (!this.isValidObjectId(roomId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
-		return this.roomModel.findOne({ id }).exec();
+		return this.roomModel.findById(id).exec(); // Изменено на findById
 	}
 
 	async getAll(): Promise<Room[]> {
@@ -25,18 +25,26 @@ export class RoomsService {
 	}
 
 	async deleteOne(roomId: string): Promise<Room | null> {
-		if (!Types.ObjectId.isValid(roomId)) {
+		if (!this.isValidObjectId(roomId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
 		return this.roomModel.findByIdAndDelete(id).exec();
 	}
 
+	async deleteAll(): Promise<DeleteResult> {
+		return this.roomModel.deleteMany({}).exec();
+	}
+
 	async update(roomId: string, dto: RoomDto): Promise<Room | null> {
-		if (!Types.ObjectId.isValid(roomId)) {
+		if (!this.isValidObjectId(roomId)) {
 			return null;
 		}
 		const id = new Types.ObjectId(roomId);
 		return this.roomModel.findByIdAndUpdate(id, dto, { new: true }).exec();
+	}
+
+	isValidObjectId(id: string): boolean {
+		return Types.ObjectId.isValid(id);
 	}
 }
